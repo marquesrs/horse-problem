@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-const BOARD_SIZE = 8
+const BOARD_SIZE = 4
 
 func RemoveUnordered[T any](s []T, idx int) []T {
 	s[len(s) - 1], s[idx] = s[idx], s[len(s) - 1]
@@ -74,6 +74,7 @@ func (b *Board) PlaceHorse(x, y int) Position {
 		log.Fatal("Invalid horse position:", x, y)
 	}
 	b.Cells[b.Horse.x + b.Horse.y * BOARD_SIZE] = b.LastIndex + 1
+	//Miguel: Ao Corno sendo alérgico a matriz, como caralhos essa parte de cima faz sentido?
 	b.LastIndex += 1
 	b.Horse = pos
     return pos
@@ -97,15 +98,43 @@ func DisplayBoard(b Board){
 	}
 }
 
+//Replace the horse one movement (input the place you want the horse to be)
+func (b *Board) ReturnHorse(x, y int){
+	pos := Position{x, y, 0}
+	if !b.ValidPosition(pos) {
+		log.Fatal("Invalid horse position:", x, y)
+	}
+	b.Cells[b.Horse.x + b.Horse.y * BOARD_SIZE] = 0
+	b.LastIndex -= 1
+	b.Horse = pos
+}
+
+//Miguel: The Dumb Way (with recursion) still wrong
+func (b *Board) RecursionWay(x, y int){
+	lastPos := Position{x, y, 0}
+	possibleMoves := b.PossibleMoves(x, y)
+	if b.LastIndex == (BOARD_SIZE * BOARD_SIZE)-1{
+		return 
+	}
+	for i := 0; i < len(possibleMoves); i++{
+		if b.VisitedPostion(possibleMoves[i]) || !b.ValidPosition(possibleMoves[i]){//Miguel: só pra garantir, não sei se precisa mesmo
+			fmt.Println("You Fucked Up BIG TIME")
+			return
+		}
+		b.PlaceHorse(possibleMoves[i].x, possibleMoves[i].y)
+		b.RecursionWay(possibleMoves[i].x, possibleMoves[i].y)
+		if b.LastIndex == (BOARD_SIZE * BOARD_SIZE)-1{
+			return 
+		}
+		b.ReturnHorse(lastPos.x, lastPos.y)
+	}
+	return
+}
+
 func main() {
 	b := Board{}
 	DisplayBoard(b)
 	fmt.Println("------------")
-	// NOTE: Obviously incorrect moves, just testing
-	b.PlaceHorse(4, 4)
-	b.PlaceHorse(1, 2)
-	b.PlaceHorse(2, 7)
-	b.PlaceHorse(3, 1)
+	b.RecursionWay(0, 0)
 	DisplayBoard(b)
-	fmt.Println(b.PossibleMoves(4, 4))
 }
