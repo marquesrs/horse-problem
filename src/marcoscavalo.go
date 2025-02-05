@@ -5,32 +5,35 @@ import (
 	"time"
 	"log"
 	"slices"
+	"math"
 )
+const MAXIMUM_ITER_COUNT = (1 << 32) - 1
  
-const BOARD_SIZE = 8
+const BOARD_SIZE = 9
  
 func RemoveUnordered[T any](s []T, idx int) []T {
 	s[len(s) - 1], s[idx] = s[idx], s[len(s) - 1]
 	return s[:len(s) - 1]
 }
  
-func abs[T int | float32 | float64 ](x T) T {
+func abs[T int | float32 | float64](x T) T {
 	if x < T(0) {
 		return -x
 	}
 	return x
 }
  
- 
 type Board struct {
     Cells [BOARD_SIZE * BOARD_SIZE]int
     Horse Position
+	StartPosition Position
 	TotalMoves int
 }
  
 func NewBoard(x, y int) Board {
     return Board {
         Horse: Position{x, y},
+        StartPosition: Position{x, y},
 		TotalMoves: 0,
     }
 }
@@ -57,15 +60,15 @@ func (b Board) PossibleMoves(x, y int) []Position{
 	positions := []Position{
 		{x - 1, y + 2},
 		{x + 1, y + 2},
- 
+
+		{x + 1, y - 2},
+		{x - 1, y - 2},
+
 		{x - 2, y + 1},
 		{x + 2, y + 1},
  
-		{x - 2, y - 1},
 		{x + 2, y - 1},
- 
-		{x - 1, y - 2},
-		{x + 1, y - 2},
+		{x - 2, y - 1},
 	}
  
 	validPositions := make([]Position, 0, len(positions))
@@ -109,11 +112,11 @@ func DisplayBoard(b Board){
 			cell := b.Cells[x + y * BOARD_SIZE]
  
 			if cell == -1 {
-				fmt.Print(" H")
+				fmt.Print("  H")
 			} else if cell == 0 {
-				fmt.Print(" .")
+				fmt.Print("  .")
 			} else {
-				fmt.Printf("%2d", cell)
+				fmt.Printf("%3d", cell)
 			}
 		}
 		fmt.Println()
@@ -125,10 +128,15 @@ type Heuristic uint32
 const (
 	None Heuristic = iota
 	PreferCorners
+	PreferRunning
 )
  
 func ManhattanDist(a, b Position) int {
 	return abs(a.x - b.x) + abs(a.y - b.y)
+}
+
+func EuclidianDist(a, b Position) float64 {
+	return math.Sqrt(float64(a.x - b.x) * float64(a.x - b.x) + (float64(a.y - b.y) * float64(a.y - b.y)))
 }
  
 func BruteForceSolve(baseX, baseY int, h Heuristic) (Board, bool) {
@@ -139,6 +147,9 @@ func BruteForceSolve(baseX, baseY int, h Heuristic) (Board, bool) {
 		b, solved = BruteForceRec(b, 0)
 	case PreferCorners:
 		b, solved = BruteForcePreferCorners(b, 0)
+	case PreferRunning:
+		b, solved = BruteForcePreferRunning(b, 0)
+
 	}
  
 	return b, solved
@@ -202,20 +213,58 @@ func BruteForcePreferCorners(b Board, level int) (Board, bool){
  
 	return b, false
 }
- 
-func main() {
-	fmt.Println("Begin solve")
- 
-	start := time.Now()
-	b, solved := BruteForceSolve(4, 4, PreferCorners)
-	elapsed := time.Since(start)
- 
-	status := "[ Solved ] "
-	if !solved {
-		status = "[ Unsolved ] "
+
+func BruteForcePreferRunning(b Board, level int) (Board, bool){
+	IterationCounter += 1
+	if b.IsSolved(){
+		return b, true
 	}
  
-	fmt.Println(status, "Took:", elapsed, "Iterations:", IterationCounter)
-	DisplayBoard(b)
+	ok := false
  
+	possible := b.PossibleMoves(b.Horse.x, b.Horse.y)
+ 
+	slices.SortFunc(possible, func(p0, p1 Position) int {
+		return ManhattanDist(p0, b.StartPosition) - ManhattanDist(p1, b.StartPosition) 
+	})
+ 
+	for _, move := range possible {
+		board := b
+		board.PlaceHorse(move.x, move.y)
+ 
+		if board, ok = BruteForcePreferRunning(board, level + 1); ok {
+			return board, true
+		}
+	}
+ 
+	return b, false
+}
+
+func main() {
+	X, Y := 4, 4
+	fmt.Println("Begin solve for", X, Y)
+	running := true
+	go func(){
+		start := time.Now()
+		b, solved := BruteForceSolve(X, Y, PreferCorners)
+		elapsed := time.Since(start)
+		
+		status := "[ Solved ] "
+		if !solved {
+			status = "[ Unsolved ] "
+		}
+		running = false
+			
+		fmt.Println(status, "Took:", elapsed, "Iterations:", IterationCounter)
+		// DisplayBoard(b)
+		_ = b
+		IterationCounter = 0
+	}()
+
+	startPoint := time.Now()
+	for running {
+		elapsed := time.Since(startPoint) 
+		fmt.Printf("\r                                              \rN:%#v It/s: %v", IterationCounter, IterationCounter / (1+int(elapsed / time.Second)) )
+		time.Sleep(100 * time.Millisecond)
+		}
 }

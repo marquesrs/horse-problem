@@ -132,7 +132,6 @@ func (b *Board) RecursionWay(x, y int){
 }
 
 func main() {
-	fmt.Println("pipi")
 	b := Board{}
 	DisplayBoard(b)
 	fmt.Println("------------")
