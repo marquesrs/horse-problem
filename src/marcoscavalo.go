@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-const MAXIMUM_ITER_COUNT = (1 << 32) - 1
-
 const BOARD_SIZE = 10
 
 func RemoveUnordered[T any](s []T, idx int) []T {
@@ -119,8 +117,6 @@ func (b Board) PossibleMoves(x, y int) []Position {
 		}
 	}
 
-	// fmt.Println("POSITIONS", positions);
-	// fmt.Println("VALID", validPositions);
 	return validPositions
 }
 
